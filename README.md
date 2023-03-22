@@ -4,9 +4,11 @@ Unfortunately, `tail -f /logs/*` may not do what you want it to do.
 
 Bash will expand `*` to all existing files within `/logs/` and then show the extra lines added to each of them.
 
-**What if you want to include newly created files too?**
+`fstail` uses the [gopkg.in/fsnotify](https://pkg.go.dev/gopkg.in/fsnotify.v1@v1.4.7) to detect both new files, and existing files that are changed. It then starts concatenting their contents to the terminal.
 
-`fstail` uses the [fsnotify mechanism](https://docs.huihoo.com/doxygen/linux/kernel/3.7/include_2linux_2fsnotify_8h_source.html) to detect both new and existing files, then starts printing their contents as and when they are written to.
+I needed this for [actuated.dev](https://actuated.dev) which launches microVMs on servers for CI.
+
+Each VM launched will create a different file at: `/var/log/actuated/GUID.txt`, and `tail -f *` would only find existing files. 
 
 ### Usage
 
