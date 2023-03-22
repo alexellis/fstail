@@ -1,4 +1,4 @@
-## fstail - tail files in adirectory including new files
+## fstail - scan a directory for changed files and tail them
 
 Unfortunately, `tail -f /logs/*` may not do what you want it to do.
 
