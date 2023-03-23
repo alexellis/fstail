@@ -16,6 +16,24 @@ import (
 
 func main() {
 
+	if len(os.Args) == 2 {
+		if os.Args[1] == "-h" || os.Args[1] == "--help" {
+			fmt.Printf(`fstail - Copyright Alex Ellis 2023
+
+Usage:
+
+  fstail
+
+  fstail /var/log/actuated
+
+  FS_PREFIX=0 fstail
+
+`)
+			return
+		}
+
+	}
+
 	var wd string
 
 	if len(os.Args) > 1 {
