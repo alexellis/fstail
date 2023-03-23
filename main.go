@@ -93,6 +93,12 @@ func NewStreamer(f *os.File) *Streamer {
 }
 
 func (s *Streamer) Stream() {
+	base := path.Base(s.f.Name())
+
+	prefix := fmt.Sprintf("%s| ", base)
+	if v, ok := os.LookupEnv("FS_PREFIX"); ok && v == "0" {
+		prefix = ""
+	}
 
 	reader := bufio.NewReader(s.f)
 	for {
@@ -106,7 +112,7 @@ func (s *Streamer) Stream() {
 			break
 		}
 
-		fmt.Printf("%s", string(line))
+		fmt.Printf("%s%s", prefix, string(line))
 	}
 }
 

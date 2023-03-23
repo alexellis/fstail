@@ -25,6 +25,17 @@ Tail the current directory:
 ```
 cd /var/log/actuated
 fstail
+
+
+[7cd0d139b24d9cd30e3ad9ce7afcfe5999d2bf20.txt] [   12.770522] bash[1191]: 2023-03-22 11:04:00Z: Running job: arkade-e2e (run-job)
+[49c8f4be774730ff6e5070166fc34ac25dc0e320.txt] [   13.363398] bash[1183]: 2023-03-22 11:04:00Z: Running job: arkade-e2e (k3sup)
+```
+
+To turn off the file prefix, set `FS_PREFIX=0`.
+
+```
+[   12.770522] bash[1191]: 2023-03-22 11:04:00Z: Running job: arkade-e2e (run-job)
+[   13.363398] bash[1183]: 2023-03-22 11:04:00Z: Running job: arkade-e2e (k3sup)
 ```
 
 Tail files in a given directory:
@@ -53,6 +64,12 @@ If you need Go on a Linux system:
 ```
 curl -sLS https://get.arkade.dev | sudo sh
 sudo arkade system install go
+```
+
+If you wish to build multi-arch binaries on your own machine:
+
+```bash
+make dist
 ```
 
 ## License
