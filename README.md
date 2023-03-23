@@ -55,6 +55,12 @@ To suppress the prefix, run the command with `FS_PREFIX=0`.
 
 ### Installation
 
+Download a release binary:
+
+* [fstail releases](https://github.com/alexellis/fstail/releases/)
+
+Or install via Go to install from source:
+
 ```bash
 go install github.com/alexellis/fstail
 ```
