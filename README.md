@@ -59,6 +59,14 @@ Download a release binary:
 
 * [fstail releases](https://github.com/alexellis/fstail/releases/)
 
+Or download via arkade:
+
+```bash
+curl -SLs https://get.arkade.dev | sh
+
+arkade get fstail
+```
+
 Or install via Go to install from source:
 
 ```bash
