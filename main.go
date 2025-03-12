@@ -125,7 +125,7 @@ Usage:
 				// log.Printf("Event: %s %s", event.Name, event.Op.String())
 
 				if len(match) > 0 && !strings.Contains(event.Name, match) {
-					log.Printf("Skipping: %s", event.Name)
+					// log.Printf("Skipping: %s", event.Name)
 					continue
 				}
 
