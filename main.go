@@ -49,7 +49,6 @@ Usage:
 		k8sPrefix     bool
 		disablePrefix bool
 	)
-	log.Println(len(os.Args))
 
 	if v, ok := os.LookupEnv("FS_PREFIX"); ok {
 		if v == "0" {
