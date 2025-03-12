@@ -53,6 +53,25 @@ By default, the base filename is going to be printed as a prefix for each tailed
 
 To suppress the prefix, run the command with `FS_PREFIX=0`.
 
+### Tail container logs from Kubernetes
+
+The kubelet with K3s will create log files for containers in `/var/log/containers` with long prefixes, the `FS_PREFIX=k8s` env-var can be used to redact the string.
+
+Any text passed after the folder forms a grep for the filenames, so here, we are only looking at "queue-worker" containers.
+
+Note that these files do not receive a "WRITE" fsnotify event, only an initial "CREATE".
+
+```bash
+FS_PREFIX=k8s sudo -E fstail /var/log/containers/ "queue-worker"
+
+2025/03/12 07:39:23 Attaching to: queue-worker-6b579d58d7-krgx5_openfaas_queue-worker-08e45f83b4f6edbd9ae2182f6709ccfb28e3e5871b5cc0d303c20c4c7b2a3d56.log
+2025/03/12 07:39:23 Attaching to: queue-worker-6b579d58d7-krgx5_openfaas_queue-worker-f03309cc46a9752a4366062da18872ee215cc1837dcb335fa0d339948f3d9609.log
+queue-worker-6b579d58d7-krgx5| 2025-03-10T12:40:45.84048421Z stderr F 2025-03-10T12:40:45.838Z	info	jetstream-queue-worker/main.go:118	JetStream queue-worker	{"version": "0.3.46", "gitCommit": "8320975de6c98c8b6ef6781e2db610cc389c7e33"}
+queue-worker-6b579d58d7-krgx5| 2025-03-10T12:40:45.840510746Z stderr F 2025-03-10T12:40:45.838Z	info	jetstream-queue-worker/main.go:120	Licensed to: Alex Ellis 
+queue-worker-6b579d58d7-krgx5| 2025-03-10T12:40:45.840514335Z stderr F 
+queue-worker-6b579d58d7-krgx5| 2025-03-10T12:40:45.840517017Z stderr F 2025-03-10T12:40:45.839Z	info	metrics/metrics.go:79	Starting metrics server on port 8081
+```
+
 ### Installation
 
 Download a release binary:
