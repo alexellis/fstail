@@ -169,6 +169,10 @@ func Run(opts RunOptions) error {
 			return fmt.Errorf("failed to read directory: %w", err)
 		}
 		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+
 			if !strings.Contains(file.Name(), opts.Match) {
 				continue
 			}
@@ -195,6 +199,10 @@ func Run(opts RunOptions) error {
 				}
 
 				if event.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+					if info, statErr := os.Stat(event.Name); statErr != nil || info.IsDir() {
+						continue
+					}
+
 					if s, ok := printers[event.Name]; ok {
 						s.Wake()
 					} else if f, err := os.Open(event.Name); err == nil {
