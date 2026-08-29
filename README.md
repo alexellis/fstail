@@ -16,7 +16,9 @@ It also will not recurse down, any levels deeper than the current directory.
 
 I needed this for [actuated.dev](https://actuated.dev) which launches microVMs on servers for CI.
 
-Each VM launched will create a different file at: `/var/log/actuated/GUID.txt`, and `tail -f *` would only find existing files. 
+Each VM launched will create a different file at: `/var/log/actuated/GUID.txt`, and `tail -f *` would only find existing files.
+
+fstail also handles rotated or truncated files: when a file shrinks, it re-reads it from the beginning, like `tail -F`.
 
 ### Usage
 
@@ -27,11 +29,11 @@ cd /var/log/actuated
 fstail
 
 
-[7cd0d139b24d9cd30e3ad9ce7afcfe5999d2bf20.txt] [   12.770522] bash[1191]: 2023-03-22 11:04:00Z: Running job: arkade-e2e (run-job)
-[49c8f4be774730ff6e5070166fc34ac25dc0e320.txt] [   13.363398] bash[1183]: 2023-03-22 11:04:00Z: Running job: arkade-e2e (k3sup)
+7cd0d139b24d9cd30e3ad9ce7afcfe5999d2bf20.txt | [   12.770522] bash[1191]: 2023-03-22 11:04:00Z: Running job: arkade-e2e (run-job)
+49c8f4be774730ff6e5070166fc34ac25dc0e320.txt | [   13.363398] bash[1183]: 2023-03-22 11:04:00Z: Running job: arkade-e2e (k3sup)
 ```
 
-To turn off the file prefix, set `FS_PREFIX=0`.
+To turn off the file prefix, use `--no-prefix` (or `--prefix none`).
 
 ```
 [   12.770522] bash[1191]: 2023-03-22 11:04:00Z: Running job: arkade-e2e (run-job)
@@ -51,18 +53,18 @@ By default, the base filename is going to be printed as a prefix for each tailed
 13d461e989733fa0f75df5227debab4be3504726.txt | Shutting down in 30s... 
 ```
 
-To suppress the prefix, run the command with `FS_PREFIX=0`.
+To suppress the prefix, run the command with `--no-prefix`.
 
 ### Tail container logs from Kubernetes
 
-The kubelet with K3s will create log files for containers in `/var/log/containers` with long prefixes, the `FS_PREFIX=k8s` env-var can be used to redact the string.
+The kubelet with K3s will create log files for containers in `/var/log/containers` with long prefixes, the `--prefix k8s` flag can be used to redact the string.
 
 Any text passed after the folder forms a grep for the filenames, so here, we are only looking at "queue-worker" containers.
 
 Note that these files do not receive a "WRITE" fsnotify event, only an initial "CREATE".
 
 ```bash
-FS_PREFIX=k8s sudo -E fstail /var/log/containers/ "queue-worker"
+sudo fstail --prefix k8s /var/log/containers/ "queue-worker"
 
 2025/03/12 07:39:23 Attaching to: queue-worker-6b579d58d7-krgx5_openfaas_queue-worker-08e45f83b4f6edbd9ae2182f6709ccfb28e3e5871b5cc0d303c20c4c7b2a3d56.log
 2025/03/12 07:39:23 Attaching to: queue-worker-6b579d58d7-krgx5_openfaas_queue-worker-f03309cc46a9752a4366062da18872ee215cc1837dcb335fa0d339948f3d9609.log
