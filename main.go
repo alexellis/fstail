@@ -53,7 +53,7 @@ It then starts concatenating their contents to the terminal.`,
 			}
 
 			opts.DisableLogPrefix = disablePrefix
-			if disablePrefix {
+			if disablePrefix || prefixStyle == "none" {
 				opts.PrefixStyle = fstail.PrefixStyleNone
 			} else if prefixStyle == "k8s" {
 				opts.PrefixStyle = fstail.PrefixStyleK8s

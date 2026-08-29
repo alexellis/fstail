@@ -66,6 +66,17 @@ func (s *Streamer) Stream() {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
+				// A truncated file (e.g. logrotate) leaves the reader
+				// parked at an offset past EOF forever. Detect the
+				// shrink and restart from the beginning.
+				if info, statErr := s.f.Stat(); statErr == nil {
+					if offset, seekErr := s.f.Seek(0, io.SeekCurrent); seekErr == nil && info.Size() < offset {
+						if _, seekErr := s.f.Seek(0, io.SeekStart); seekErr == nil {
+							reader.Reset(s.f)
+						}
+					}
+				}
+
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
@@ -86,6 +97,10 @@ func (s *Streamer) Close() {
 
 // Run starts watching the directory for file changes and tails them.
 func Run(opts RunOptions) error {
+	if opts.PrefixStyle == PrefixStyleNone {
+		opts.DisableLogPrefix = true
+	}
+
 	fmt.Printf("Watching: %s match: %s, prefix: %s\n", opts.WorkDir, opts.Match, opts.PrefixStyle)
 
 	printers := make(map[string]*Streamer)
@@ -123,7 +138,7 @@ func Run(opts RunOptions) error {
 		for {
 			select {
 			case event := <-watcher.Events:
-				if len(opts.Match) > 0 && !strings.Contains(event.Name, opts.Match) {
+				if len(opts.Match) > 0 && !strings.Contains(path.Base(event.Name), opts.Match) {
 					continue
 				}
 
