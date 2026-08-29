@@ -11,10 +11,15 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	fsnotify "gopkg.in/fsnotify.v1"
 )
+
+// fallbackPollInterval is how often a Streamer re-checks its file for
+// new data without a wake-up from the watcher.
+const fallbackPollInterval = time.Second
 
 // RunOptions contains the configuration for running fstail.
 type RunOptions struct {
@@ -39,14 +44,42 @@ type Streamer struct {
 
 	k8sPrefix     bool
 	disablePrefix bool
+
+	wake chan struct{}
+	stop chan struct{}
+	once sync.Once
 }
 
 // NewStreamer creates a new Streamer for the given file.
 func NewStreamer(f *os.File, k8sPrefix bool, disablePrefix bool) *Streamer {
-	return &Streamer{f: f, k8sPrefix: k8sPrefix, disablePrefix: disablePrefix}
+	return &Streamer{
+		f:             f,
+		k8sPrefix:     k8sPrefix,
+		disablePrefix: disablePrefix,
+		wake:          make(chan struct{}, 1),
+		stop:          make(chan struct{}),
+	}
 }
 
-// Stream reads and outputs log lines from the file.
+// Wake nudges the Streamer to check its file for new data. Calls coalesce,
+// so it is safe to invoke for every watch event.
+func (s *Streamer) Wake() {
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
+}
+
+// Stop signals the Streamer to exit and closes its file. It is safe to
+// call more than once.
+func (s *Streamer) Stop() {
+	s.once.Do(func() {
+		close(s.stop)
+		s.f.Close()
+	})
+}
+
+// Stream reads and outputs log lines from the file until Stop is called.
 func (s *Streamer) Stream() {
 	base := path.Base(s.f.Name())
 
@@ -62,37 +95,56 @@ func (s *Streamer) Stream() {
 	}
 
 	reader := bufio.NewReader(s.f)
+	ticker := time.NewTicker(fallbackPollInterval)
+	defer ticker.Stop()
+
 	for {
 		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				// A truncated file (e.g. logrotate) leaves the reader
-				// parked at an offset past EOF forever. Detect the
-				// shrink and restart from the beginning.
-				if info, statErr := s.f.Stat(); statErr == nil {
-					if offset, seekErr := s.f.Seek(0, io.SeekCurrent); seekErr == nil && info.Size() < offset {
-						if _, seekErr := s.f.Seek(0, io.SeekStart); seekErr == nil {
-							reader.Reset(s.f)
-						}
-					}
-				}
+		if err == nil {
+			fmt.Printf("%s%s", prefix, line)
+			continue
+		}
 
-				time.Sleep(100 * time.Millisecond)
-				continue
-			}
-
+		if err != io.EOF {
 			break
 		}
 
-		fmt.Printf("%s%s", prefix, string(line))
+		if rewound(s.f, reader) {
+			continue
+		}
+
+		select {
+		case <-s.wake:
+		case <-ticker.C:
+		case <-s.stop:
+			return
+		}
 	}
 }
 
-// Close closes the file handled by the Streamer.
-func (s *Streamer) Close() {
-	if s.f != nil {
-		s.f.Close()
+// rewound seeks the file back to its start if it shrank below the read
+// offset, as done by tail -F, returning true when that happened.
+func rewound(f *os.File, reader *bufio.Reader) bool {
+	info, err := f.Stat()
+	if err != nil {
+		return false
 	}
+
+	offset, err := f.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return false
+	}
+
+	if info.Size() >= offset {
+		return false
+	}
+
+	if _, err = f.Seek(0, io.SeekStart); err != nil {
+		return false
+	}
+
+	reader.Reset(f)
+	return true
 }
 
 // Run starts watching the directory for file changes and tails them.
@@ -142,29 +194,19 @@ func Run(opts RunOptions) error {
 					continue
 				}
 
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					if _, ok := printers[event.Name]; !ok {
-						if f, err := os.Open(event.Name); err == nil {
-							s := NewStreamer(f, opts.PrefixStyle == PrefixStyleK8s, opts.DisableLogPrefix)
-							go s.Stream()
-							printers[event.Name] = s
-						} else {
-							log.Println(err)
-						}
-					}
-				} else if event.Op&fsnotify.Create == fsnotify.Create {
-					if _, ok := printers[event.Name]; !ok {
-						if f, err := os.Open(event.Name); err == nil {
-							s := NewStreamer(f, opts.PrefixStyle == PrefixStyleK8s, opts.DisableLogPrefix)
-							go s.Stream()
-							printers[event.Name] = s
-						} else {
-							log.Println(err)
-						}
+				if event.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+					if s, ok := printers[event.Name]; ok {
+						s.Wake()
+					} else if f, err := os.Open(event.Name); err == nil {
+						s := NewStreamer(f, opts.PrefixStyle == PrefixStyleK8s, opts.DisableLogPrefix)
+						go s.Stream()
+						printers[event.Name] = s
+					} else {
+						log.Println(err)
 					}
 				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
-					if _, ok := printers[event.Name]; ok {
-						printers[event.Name].Close()
+					if s, ok := printers[event.Name]; ok {
+						s.Stop()
 						delete(printers, event.Name)
 					}
 				}
